@@ -6,7 +6,11 @@
 
 项目仓库：[jinyang-ops/go2-sim-test-bench](https://github.com/jinyang-ops/go2-sim-test-bench)。硬件起步说明见 [R9000P / RTX 4060 操作指南](docs/r9000p_quickstart.md)。
 
-**交付状态：测试代码已编写，CPU 指标/报告单元测试见 VALIDATION.md；尚未在你的 NVIDIA GPU 和 Ubuntu 22.04 上完成训练、仿真或整机验证。仓库里没有预训练权重和真实机器人性能数据。**
+**验证状态：使用者已在 Ubuntu 22.04 / RTX 4060 Laptop 上完成依赖导入、gymtorch 编译、原项目训练/回放、1000 轮平地训练，以及五场景共 120 回合评估，并提供终端结果。负载场景仍存在明显性能短板。GPU 结果记录见下方链接；完整赛道、ROS 2/Gazebo 接入和实机验证尚未完成。模型权重与原始完整数据尚未上传。**
+
+- [120 回合平地基线报告](docs/results/plane_baseline_matrix.md)
+- [50 轮与 1000 轮模型的短程测试](docs/results/short_motion_comparison.md)
+- [验证范围与待完成项](VALIDATION.md)
 
 上游：[jindadu00/legged_robot_competition](https://github.com/jindadu00/legged_robot_competition)。本次检查的 master 提交：`7ef08a3f8069750213071adf0032c04cf1be1777`。
 
