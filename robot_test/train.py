@@ -1,17 +1,23 @@
 """Training wrapper that synchronizes CLI seed before environment creation."""
 
 import argparse
+from dataclasses import asdict
 from pathlib import Path
+
+from .stages import STAGES, CourseStageMixin, resolve_stage
 
 
 def main():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--qa-terrain", choices=("plane", "competition"), default="plane")
     parser.add_argument("--qa-init-model", type=Path, help="Initialize network weights with fresh optimizer/iteration state")
+    parser.add_argument("--qa-course-stage", choices=tuple(STAGES), help="Restrict competition training to a short stage")
     randomization = parser.add_mutually_exclusive_group()
     randomization.add_argument("--qa-domain-rand", action="store_true")
     randomization.add_argument("--qa-mass-rand", action="store_true")
     qa, remaining = parser.parse_known_args()
+    if qa.qa_course_stage is not None and qa.qa_terrain != "competition":
+        parser.error("--qa-course-stage requires --qa-terrain competition")
     if qa.qa_init_model is not None and not qa.qa_init_model.is_file():
         parser.error("Initialization checkpoint does not exist: " + str(qa.qa_init_model))
 
@@ -34,7 +40,15 @@ def main():
     env_cfg.terrain.mesh_type = qa.qa_terrain
     profile = "full" if qa.qa_domain_rand else "mass_only" if qa.qa_mass_rand else "nominal"
     configure_training_randomization(env_cfg, profile)
-    env, env_cfg = task_registry.make_env("go2", args=args, env_cfg=env_cfg)
+    stage = resolve_stage(qa.qa_course_stage, env_cfg) if qa.qa_course_stage else None
+    env_name = "go2"
+    if stage is not None:
+        class StagedGo2(CourseStageMixin, task_registry.get_task_class("go2")):
+            stage_spec = stage
+        env_name = "go2_course_" + stage.name
+        task_registry.register(env_name, StagedGo2, env_cfg, train_cfg)
+        print("Course stage:", asdict(stage), flush=True)
+    env, env_cfg = task_registry.make_env(env_name, args=args, env_cfg=env_cfg)
     runner, train_cfg = task_registry.make_alg_runner(env, args=args, train_cfg=train_cfg)
     initialization = None
     if qa.qa_init_model is not None:
@@ -45,6 +59,7 @@ def main():
         "seed": seed, "terrain": qa.qa_terrain, "domain_randomization": profile != "nominal",
         "randomization_profile": profile,
         "initialization": initialization,
+        "course_stage": asdict(stage) if stage is not None else None,
         "upstream": git_identity(LEGGED_GYM_ROOT_DIR),
         "test_bench": git_identity(Path(__file__).resolve().parents[1]),
         "dependencies": dependency_versions(),
