@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+reports/
+logs/
+environment.json
+*.pt
+*.pth
+*.so
+*.zip
+*.mp4
+# Keep the upstream source/SDK outside this repository.
+isaacgym/
+legged_robot_competition/
+upstream/
