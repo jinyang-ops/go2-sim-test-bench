@@ -6,8 +6,10 @@
 
 项目仓库：[jinyang-ops/go2-sim-test-bench](https://github.com/jinyang-ops/go2-sim-test-bench)。硬件起步说明见 [R9000P / RTX 4060 操作指南](docs/r9000p_quickstart.md)。
 
-**验证状态：使用者已在 Ubuntu 22.04 / RTX 4060 Laptop 上完成依赖导入、gymtorch 编译、原项目训练/回放、1000 轮平地训练，以及五场景共 120 回合评估，并提供终端结果。负载场景仍存在明显性能短板。GPU 结果记录见下方链接；完整赛道、ROS 2/Gazebo 接入和实机验证尚未完成。模型权重与原始完整数据尚未上传。**
+**验证状态：使用者已在 Ubuntu 22.04 / RTX 4060 Laptop 上完成依赖与仿真启动、原项目训练/回放、平地基线与仅质量随机化训练，以及两组五场景矩阵共 240 回合评估。质量随机化组的负载成功率由 16.7% 提高到 54.2%，同时低摩擦场景由 91.7% 降到 54.2%；结果含明显取舍，不能称为全场景提升。GPU 汇总来自使用者提供的本机输出。完整赛道、ROS 2/Gazebo 和实机尚未验证；权重与完整原始数据尚未上传。**
 
+- [240 回合对比：负载改善与低摩擦退化](docs/results/mass_randomization_comparison.md)
+- [仅质量随机化实验设置](docs/experiments/mass_randomization.md)
 - [120 回合平地基线报告](docs/results/plane_baseline_matrix.md)
 - [50 轮与 1000 轮模型的短程测试](docs/results/short_motion_comparison.md)
 - [验证范围与待完成项](VALIDATION.md)
