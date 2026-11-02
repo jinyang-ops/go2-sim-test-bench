@@ -10,6 +10,7 @@ from pathlib import Path
 from .common import CASES, UPSTREAM_COMMIT, UPSTREAM_URL, command_output, dependency_versions, git_identity, save_json, sha256, upstream_arguments, configure_case
 from .instrumentation import SnapshotMixin
 from .metrics import Trial, summarize
+from .trace import TRACE_FIELDS, make_trace_row
 
 
 def main():
@@ -22,6 +23,7 @@ def main():
     parser.add_argument("--qa-goal-m", type=float, default=10.0)
     parser.add_argument("--qa-speed", type=float, default=1.0)
     parser.add_argument("--qa-min-success-rate", type=float)
+    parser.add_argument("--qa-trace", action="store_true", help="Save first-episode pre-reset motion traces")
     qa, remaining = parser.parse_known_args()
     for value in (qa.qa_duration, qa.qa_goal_m, qa.qa_speed):
         if not math.isfinite(value) or value <= 0:
@@ -98,13 +100,15 @@ def main():
     actor.eval()
     obs, _ = env.reset()
     initial_x = env.root_states[:, 0].detach().cpu().tolist()
+    initial_y = env.root_states[:, 1].detach().cpu().tolist() if qa.qa_trace else None
+    trace_rows = []
     trials = [Trial(i, x, qa.qa_goal_m, env.dt, lane=12.0 if qa.qa_terrain == "competition" else None) for i, x in enumerate(initial_x)]
     obs_shape = tuple(obs.shape)
     if obs_shape != (env.num_envs, env.num_obs) or not bool(torch.isfinite(obs).all()):
         raise ValueError("Invalid observation shape or nonfinite initial observations: " + str(obs_shape))
     max_steps = math.ceil(qa.qa_duration / env.dt)
     with torch.no_grad():
-        for _ in range(max_steps):
+        for step_index in range(max_steps):
             if not bool(torch.isfinite(obs).all()):
                 raise FloatingPointError("Nonfinite observation; run is invalid.")
             actions = actor.act_inference(obs)
@@ -114,6 +118,12 @@ def main():
             # Consume the PRE-RESET state, never env.root_states after env.step().
             snapshot = {key: value.cpu().tolist() for key, value in env.qa_snapshot.items()}
             for i, trial in enumerate(trials):
+                if qa.qa_trace and trial.reason is None:
+                    row = make_trace_row(i, step_index + 1, env.dt, (initial_x[i], initial_y[i]),
+                                         snapshot["state"][i], snapshot["velocity"][i],
+                                         snapshot["command"][i], snapshot["torques"][i])
+                    if row is not None:
+                        trace_rows.append(row)
                 trial.update(*(snapshot[key][i] for key in ("state", "velocity", "command", "torques", "contact", "timeout", "done")))
             if all(t.reason is not None for t in trials):
                 break
@@ -121,12 +131,18 @@ def main():
     rows = [t.finish() for t in trials]
     summary = summarize(rows)
     qa.qa_output.mkdir(parents=True, exist_ok=False)
+    if qa.qa_trace:
+        with (qa.qa_output / "motion_trace.csv").open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.DictWriter(stream, fieldnames=TRACE_FIELDS)
+            writer.writeheader()
+            writer.writerows(trace_rows)
     with (qa.qa_output / "episodes.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
     metadata = {
         "schema_version": 1,
+        "motion_trace_schema_version": 1 if qa.qa_trace else None,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "upstream_url": UPSTREAM_URL, "inspected_upstream_commit": UPSTREAM_COMMIT,
         "upstream_worktree": git_identity(LEGGED_GYM_ROOT_DIR),

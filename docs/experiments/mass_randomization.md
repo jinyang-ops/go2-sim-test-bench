@@ -68,7 +68,7 @@ python -u -m robot_test.train \
 
 不改变目标、时限或失败判定来抬高分数。质量随机化效果可能无提升甚至退化，实验结果以实际输出为准。
 
-当前变体已完成：added_mass 13/24（基线 4/24），nominal 23/24（基线 17/24）；robot_friction 13/24（基线 22/24），存在退化。新模型失败类型尚未提供，不能据此断言跌落次数已减少。
+当前变体已完成：added_mass 13/24（基线 4/24），nominal 23/24（基线 17/24）；robot_friction 13/24（基线 22/24），存在退化。后续汇总确认：质量随机化模型的 added_mass 和 robot_friction 均为 13 次达标、11 次超时，未触发跌落/基座接触判定；低摩擦超时的运动轨迹归因待采集，见 [轨迹诊断](motion_trace.md)。
 
 完整数据与边界说明：[质量随机化回归对比](../results/mass_randomization_comparison.md)。
 
