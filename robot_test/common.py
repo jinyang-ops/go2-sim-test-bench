@@ -60,6 +60,21 @@ def upstream_arguments(remaining):
     return args
 
 
+def configure_training_randomization(cfg, profile):
+    """Keep mass-only training isolated from friction, noise and push changes."""
+    if profile not in ("nominal", "mass_only", "full"):
+        raise ValueError("Unknown training randomization profile: " + str(profile))
+    full = profile == "full"
+    cfg.noise.add_noise = full
+    cfg.domain_rand.randomize_friction = full
+    cfg.domain_rand.friction_range = [0.3, 1.2]
+    cfg.domain_rand.randomize_base_mass = profile != "nominal"
+    cfg.domain_rand.added_mass_range = [0.0, 2.0] if profile == "mass_only" else [-1.0, 2.0]
+    cfg.domain_rand.push_robots = full
+    cfg.domain_rand.push_interval_s = 5.0
+    cfg.domain_rand.max_push_vel_xy = 0.5
+
+
 def configure_case(cfg, case):
     # Nominal is explicitly defined, including robot-shape friction = 1.0.
     cfg.terrain.curriculum = False
