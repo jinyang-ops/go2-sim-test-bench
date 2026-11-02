@@ -22,6 +22,7 @@
 - [比赛地图迁移与分段验证](docs/competition_training.md)
 - [短程分段训练](docs/experiments/course_stages.md)
 - [比赛地图迁移退化记录](docs/results/competition_transfer_regression.md)
+- [迁移训练离线诊断](docs/experiments/transfer_diagnostics.md)
 - [平地基线](docs/results/plane_baseline_matrix.md)
 - [质量随机化设置](docs/experiments/mass_randomization.md)
 - [两组模型回归对比](docs/results/mass_randomization_comparison.md)
@@ -85,7 +86,7 @@ python -m robot_test.train --task=go2 --qa-terrain plane --num_envs=256 --headle
 
 仅质量随机化使用 `--qa-mass-rand`；全部训练扰动使用 `--qa-domain-rand`，二者互斥。预算只是实验起点，不保证收敛。模型默认保存于实际 editable 安装的上游 `legged_gym/logs/<experiment>/<run>/` 中，训练记录为 qa_training.json。
 
-迁移到比赛地图可使用 `--qa-terrain competition --qa-init-model /absolute/path/to/model.pt`。该入口只初始化网络权重，优化器与训练迭代从零开始；不能同时传 `--resume`。原随机出生范围迁移已出现短程运动能力退化，下一轮使用 `--qa-course-stage flat` 做 100 轮恢复实验，保留能力后再扩展。分段入口已通过 CPU 检查，GPU 效果待验证。
+迁移到比赛地图可使用 `--qa-terrain competition --qa-init-model /absolute/path/to/model.pt`。该入口只初始化网络权重，优化器与训练迭代从零开始；不能同时传 `--resume`。原随机出生范围迁移和 `--qa-course-stage flat` 的 100 轮恢复实验均未通过短程能力保持检查。当前暂停扩大训练范围，先用 `robot_test.inspect_training` 核对已有检查点、探索标准差、优化器学习率与实际训练配置，详见诊断流程。
 
 ```bash
 model_path=/absolute/path/to/model_1000.pt
