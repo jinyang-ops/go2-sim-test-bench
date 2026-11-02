@@ -59,6 +59,22 @@ def read_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def validate_probe_baseline(source, directory):
+    """Require a passing source result under the exact short-motion protocol."""
+    meta = read_json(directory / "metadata.json")
+    summary = read_json(directory / "summary.json")
+    expected = {"seed": 0, "case": "nominal", "terrain": "competition", "heading_mode": "heading",
+                "evaluation_protocol": "world_x_heading_v2", "duration_limit_s": 5.0,
+                "goal_progress_m": 1.0, "command_vx_mps": 1.0, "observation_shape": [1, 235]}
+    if any(meta.get(key) != value for key, value in expected.items()):
+        raise ValueError("Source baseline protocol differs from the 5s/1m heading probe.")
+    if meta.get("checkpoint_sha256") != sha256(source):
+        raise ValueError("Source baseline checkpoint SHA256 does not match the supplied source.")
+    if summary.get("trials") != 1 or summary.get("success_rate") != 1.0:
+        raise ValueError("Source baseline did not pass. Stop the update probe and inspect its results first.")
+    return summary
+
+
 def training_info(data):
     env = data.get("env_cfg", {})
     train = data.get("train_cfg", {})

@@ -1,5 +1,10 @@
 import unittest
-from robot_test.inspect_training import checkpoint_info, compare_weights, training_info, vector_delta
+import json
+import tempfile
+from pathlib import Path
+
+from robot_test.common import sha256
+from robot_test.inspect_training import checkpoint_info, compare_weights, training_info, validate_probe_baseline, vector_delta
 
 
 class TensorFixture:
@@ -21,6 +26,44 @@ class TensorFixture:
 
 
 class InspectionTests(unittest.TestCase):
+    def make_baseline(self, root):
+        source = root / "source.pt"
+        source.write_bytes(b"synthetic checkpoint")
+        metadata = {"seed": 0, "case": "nominal", "terrain": "competition", "heading_mode": "heading",
+                    "evaluation_protocol": "world_x_heading_v2", "duration_limit_s": 5.,
+                    "goal_progress_m": 1., "command_vx_mps": 1., "observation_shape": [1, 235],
+                    "checkpoint_sha256": sha256(source)}
+        (root / "metadata.json").write_text(json.dumps(metadata))
+        (root / "summary.json").write_text(json.dumps({"trials": 1, "success_rate": 1.0}))
+        return source, metadata
+
+    def test_probe_requires_a_passing_source_under_the_exact_protocol(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, _ = self.make_baseline(root)
+            self.assertEqual(validate_probe_baseline(source, root)["success_rate"], 1.)
+            (root / "summary.json").write_text(json.dumps({"trials": 1, "success_rate": 0.}))
+            with self.assertRaises(ValueError):
+                validate_probe_baseline(source, root)
+
+    def test_probe_rejects_a_different_source_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, _ = self.make_baseline(root)
+            source.write_bytes(b"different checkpoint")
+            with self.assertRaises(ValueError):
+                validate_probe_baseline(source, root)
+
+    def test_probe_rejects_a_changed_protocol_even_when_it_passed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, metadata = self.make_baseline(root)
+            for key, value in [("heading_mode", "yaw_rate"), ("duration_limit_s", 20.), ("seed", 1)]:
+                altered = dict(metadata, **{key: value})
+                (root / "metadata.json").write_text(json.dumps(altered))
+                with self.assertRaises(ValueError):
+                    validate_probe_baseline(source, root)
+
     def test_known_parameter_change(self):
         result = vector_delta([3., 4.], [6., 8.])
         self.assertEqual(result["source_squared_l2"], 25)
