@@ -19,6 +19,7 @@
 
 - [验证记录](VALIDATION.md)
 - [环境配置](docs/environment.md)
+- [比赛地图迁移与分段验证](docs/competition_training.md)
 - [平地基线](docs/results/plane_baseline_matrix.md)
 - [质量随机化设置](docs/experiments/mass_randomization.md)
 - [两组模型回归对比](docs/results/mass_randomization_comparison.md)
@@ -82,12 +83,16 @@ python -m robot_test.train --task=go2 --qa-terrain plane --num_envs=256 --headle
 
 仅质量随机化使用 `--qa-mass-rand`；全部训练扰动使用 `--qa-domain-rand`，二者互斥。预算只是实验起点，不保证收敛。模型默认保存于实际 editable 安装的上游 `legged_gym/logs/<experiment>/<run>/` 中，训练记录为 qa_training.json。
 
+迁移到比赛地图可使用 `--qa-terrain competition --qa-init-model /absolute/path/to/model.pt`。该入口只初始化网络权重，优化器与训练迭代从零开始；不能同时传 `--resume`。新地图入口的 GPU 训练效果待实际运行验证。
+
 ```bash
 model_path=/absolute/path/to/model_1000.pt
 python -m robot_test.play --model "$model_path" --seconds 60 --case nominal --heading-mode heading
 ```
 
 演示使用航向保持时，与历史 yaw-rate=0 的评估协议不同，不将演示直接当作原协议成绩。
+
+比赛地图回放可附加 `--terrain competition`，相机仍跟随机器人。回放不是计分评估。
 
 ## 评估与报告
 
@@ -97,6 +102,8 @@ python -m robot_test.report reports/baseline_matrix --output reports/baseline_re
 ```
 
 默认 5 场景 × 3 种子 × 8 个首回合，共计划 120 回合。输出目录必须是新目录；只有实际产生且有效的数据才计入报告。
+
+新评估可显式使用 `--qa-heading-mode heading`（矩阵使用 `--heading-mode heading`）启用目标朝向反馈。默认 `yaw_rate` 保持旧协议；报告会将两种模式分开，不能把新航向模式下的成绩当成旧协议提升。比赛地图 CSV 另外记录重置前终止位置与参考路段。
 
 - 成功：在时限内首次达到指定 world-X 前进距离，且该帧未被判定失败。
 - 失败：基座接触/跌落、赛道出界或到时未达目标；同帧失败优先于达标。

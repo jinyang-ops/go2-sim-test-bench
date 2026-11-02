@@ -17,6 +17,7 @@ class Trial:
         self.squared_error = 0.0
         self.abs_torque = 0.0
         self.reason = None
+        self.last_position = None
 
     def update(self, state, velocity, command, torques, contact, timeout, done):
         if self.reason is not None:
@@ -26,6 +27,7 @@ class Trial:
             self.reason = "invalid_state"
             return
         self.steps += 1
+        self.last_position = [float(value) for value in state[:3]]
         self.progress = float(state[0]) - self.start_x
         self.max_progress = max(self.max_progress, self.progress)
         # RMS of planar velocity-vector error; units m/s.
@@ -46,6 +48,10 @@ class Trial:
             self.reason = "time_limit"
         return {
             "env_id": self.env_id,
+            "start_x_m": self.start_x,
+            "end_x_m": self.last_position[0] if self.last_position is not None else None,
+            "end_y_m": self.last_position[1] if self.last_position is not None else None,
+            "end_z_m": self.last_position[2] if self.last_position is not None else None,
             "outcome": self.reason,
             "success": int(self.reason == "goal_reached"),
             "valid_steps": self.steps,

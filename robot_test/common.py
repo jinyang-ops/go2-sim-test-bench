@@ -3,6 +3,7 @@
 import hashlib
 import importlib.metadata
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -90,3 +91,23 @@ def configure_case(cfg, case):
     cfg.domain_rand.push_robots = case == "push"
     cfg.domain_rand.push_interval_s = 5.0
     cfg.domain_rand.max_push_vel_xy = 0.5
+
+
+def motion_protocol(heading_mode):
+    if heading_mode == "yaw_rate":
+        return "world_x_yaw_rate_v1"
+    if heading_mode == "heading":
+        return "world_x_heading_v2"
+    raise ValueError("Unknown heading mode: " + str(heading_mode))
+
+
+def configure_motion_commands(cfg, speed, heading_mode):
+    protocol = motion_protocol(heading_mode)
+    if not math.isfinite(speed) or speed <= 0:
+        raise ValueError("Command speed must be positive and finite.")
+    cfg.commands.heading_command = heading_mode == "heading"
+    cfg.commands.ranges.lin_vel_x = [speed, speed]
+    cfg.commands.ranges.lin_vel_y = [0.0, 0.0]
+    cfg.commands.ranges.ang_vel_yaw = [0.0, 0.0]
+    cfg.commands.ranges.heading = [0.0, 0.0]
+    return protocol

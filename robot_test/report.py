@@ -5,7 +5,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-from .common import save_json
+from .common import motion_protocol, save_json
 
 
 def main():
@@ -30,11 +30,13 @@ def main():
             meta = json.loads(meta_file.read_text())
             summary = json.loads(meta_file.with_name("summary.json").read_text())
             # Keep different protocols separate; do not average incompatible tests.
-            key = (meta["checkpoint_sha256"], meta["terrain"], meta["case"], meta["goal_progress_m"], meta["duration_limit_s"], meta["command_vx_mps"])
+            heading_mode = meta.get("heading_mode", "yaw_rate")
+            protocol = meta.get("evaluation_protocol", motion_protocol(heading_mode))
+            key = (meta["checkpoint_sha256"], meta["terrain"], meta["case"], meta["goal_progress_m"], meta["duration_limit_s"], meta["command_vx_mps"], heading_mode, protocol)
             groups[key].append({"seed": meta["seed"], **summary})
     if not groups:
         parser.error("No actual metadata.json + summary.json pairs found.")
-    lines = ["# GO2 仿真测试报告", "", "数据来自本地实际评估输出。成功=限定时间内首次达到指定前进距离且该帧无失败；不等同于完成全赛道。", "", "|模型 SHA256 前12位|地形|场景|目标m/时限s/速度m·s⁻¹|回合数|成功率|均值最大前进m|均值速度误差m/s|", "|---|---|---|---|---:|---:|---:|---:|"]
+    lines = ["# GO2 仿真测试报告", "", "数据来自本地实际评估输出。成功=限定时间内首次达到指定前进距离且该帧无失败；不等同于完成全赛道。", "", "|模型 SHA256 前12位|地形|场景|协议/航向|目标m/时限s/速度m·s⁻¹|回合数|成功率|均值最大前进m|均值速度误差m/s|", "|---|---|---|---|---|---:|---:|---:|---:|"]
     serializable = []
     for key, runs in sorted(groups.items()):
         count = sum(r["trials"] for r in runs)
@@ -43,7 +45,7 @@ def main():
         valid_rmse = [r for r in runs if r["mean_velocity_vector_rmse_mps"] is not None]
         error = sum(r["mean_velocity_vector_rmse_mps"] * r["trials"] for r in valid_rmse) / sum(r["trials"] for r in valid_rmse) if valid_rmse else None
         error_text = "NA" if error is None else "{:.3f}".format(error)
-        lines.append("|{}|{}|{}|{}/{}/{}|{}|{:.1%}|{:.3f}|{}|".format(key[0][:12], key[1], key[2], key[3], key[4], key[5], count, rate, progress, error_text))
+        lines.append("|{}|{}|{}|{} ({})|{}/{}/{}|{}|{:.1%}|{:.3f}|{}|".format(key[0][:12], key[1], key[2], key[7], key[6], key[3], key[4], key[5], count, rate, progress, error_text))
         serializable.append({"protocol": list(key), "runs": runs})
     lines += ["", "每个模型应使用相同协议和评估种子。批内回合共享部分扰动；不能把回合数当成独立训练次数。另查看每个 summary.json 的失败原因及每个 seed 的结果。", "", "运行异常或门槛未通过的记录：{}。缺失结果不计作通过。".format(len(missing)), ""]
     for run in missing:

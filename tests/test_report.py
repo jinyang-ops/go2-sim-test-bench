@@ -28,6 +28,24 @@ class ReportingTests(unittest.TestCase):
             result = subprocess.run([sys.executable, "-m", "robot_test.report", directory, "--output", str(Path(directory) / "out")], capture_output=True)
             self.assertNotEqual(result.returncode, 0)
 
+    def test_legacy_and_heading_protocols_are_not_merged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for mode in ("legacy", "heading"):
+                run = root / "inputs" / mode
+                run.mkdir(parents=True)
+                meta = {"checkpoint_sha256": "a" * 64, "terrain": "competition", "case": "nominal", "seed": 0, "goal_progress_m": 22, "duration_limit_s": 60, "command_vx_mps": 1}
+                if mode == "heading":
+                    meta["heading_mode"] = "heading"
+                    meta["evaluation_protocol"] = "world_x_heading_v2"
+                summary = {"trials": 8, "success_rate": 0.5, "mean_max_progress_m": 10, "mean_velocity_vector_rmse_mps": 0.1}
+                (run / "metadata.json").write_text(json.dumps(meta))
+                (run / "summary.json").write_text(json.dumps(summary))
+            subprocess.run([sys.executable, "-m", "robot_test.report", str(root / "inputs"), "--output", str(root / "out")], check=True, capture_output=True)
+            result = json.loads((root / "out" / "report_data.json").read_text())
+            self.assertEqual(len(result["groups"]), 2)
+            self.assertEqual({g["protocol"][6] for g in result["groups"]}, {"heading", "yaw_rate"})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,7 @@ from pathlib import Path
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, type=Path)
+    parser.add_argument("--terrain", choices=("plane", "competition"), default="plane")
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--speed", type=float, default=1.0)
     parser.add_argument("--case", choices=("nominal", "added_mass", "robot_friction"), default="nominal")
@@ -29,7 +30,7 @@ def main():
     args = upstream_arguments(["--task=go2", "--num_envs=1", "--seed=0"])
     cfg, train_cfg = task_registry.get_cfgs("go2")
     cfg.seed = train_cfg.seed = 0
-    cfg.terrain.mesh_type = "plane"
+    cfg.terrain.mesh_type = qa.terrain
     cfg.env.episode_length_s = max(25.0, qa.seconds + 1.0)
     configure_case(cfg, qa.case)
     cfg.commands.heading_command = qa.heading_mode == "heading"
@@ -51,7 +52,7 @@ def main():
         actor.load_state_dict(checkpoint["model_state_dict"], strict=True)
         actor.eval()
         obs, _ = env.reset()
-        print("DEMO: plane, case={}, heading_mode={}, speed={}m/s; not a scored benchmark.".format(qa.case, qa.heading_mode, qa.speed), flush=True)
+        print("DEMO: terrain={}, case={}, heading_mode={}, speed={}m/s; not a scored benchmark.".format(qa.terrain, qa.case, qa.heading_mode, qa.speed), flush=True)
         print("Loaded:", qa.model, flush=True)
         print("Following camera. Close the viewer or press Escape/Ctrl+C to finish.", flush=True)
         interval = max(1, round(1.0 / env.dt))

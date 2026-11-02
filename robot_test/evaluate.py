@@ -7,7 +7,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .common import CASES, UPSTREAM_COMMIT, UPSTREAM_URL, command_output, dependency_versions, git_identity, save_json, sha256, upstream_arguments, configure_case
+from .common import CASES, UPSTREAM_COMMIT, UPSTREAM_URL, command_output, configure_motion_commands, dependency_versions, git_identity, save_json, sha256, upstream_arguments, configure_case
+from .course import SEGMENTS, segment_at
 from .instrumentation import SnapshotMixin
 from .metrics import Trial, summarize
 from .trace import TRACE_FIELDS, make_trace_row
@@ -22,6 +23,7 @@ def main():
     parser.add_argument("--qa-duration", type=float, default=20.0)
     parser.add_argument("--qa-goal-m", type=float, default=10.0)
     parser.add_argument("--qa-speed", type=float, default=1.0)
+    parser.add_argument("--qa-heading-mode", choices=("yaw_rate", "heading"), default="yaw_rate")
     parser.add_argument("--qa-min-success-rate", type=float)
     parser.add_argument("--qa-trace", action="store_true", help="Save first-episode pre-reset motion traces")
     qa, remaining = parser.parse_known_args()
@@ -62,10 +64,7 @@ def main():
     env_cfg.env.episode_length_s = qa.qa_duration
     env_cfg.terrain.mesh_type = qa.qa_terrain
     configure_case(env_cfg, qa.qa_case)
-    env_cfg.commands.heading_command = False
-    env_cfg.commands.ranges.lin_vel_x = [qa.qa_speed, qa.qa_speed]
-    env_cfg.commands.ranges.lin_vel_y = [0.0, 0.0]
-    env_cfg.commands.ranges.ang_vel_yaw = [0.0, 0.0]
+    protocol = configure_motion_commands(env_cfg, qa.qa_speed, qa.qa_heading_mode)
 
     class TestGo2(SnapshotMixin, Go2Robot):
         def _get_env_origins(self):
@@ -129,6 +128,10 @@ def main():
                 break
 
     rows = [t.finish() for t in trials]
+    layout_matches = all(getattr(env_cfg.terrain, key, None) == value for key, value in (
+        ("terrain_length", 12.0), ("terrain_width", 12.0), ("num_rows", 9), ("num_cols", 1)))
+    for row in rows:
+        row["terminal_segment"] = (segment_at(row["end_x_m"]) if layout_matches else "unverified_layout") if qa.qa_terrain == "competition" else None
     summary = summarize(rows)
     qa.qa_output.mkdir(parents=True, exist_ok=False)
     if qa.qa_trace:
@@ -141,7 +144,10 @@ def main():
         writer.writeheader()
         writer.writerows(rows)
     metadata = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "heading_mode": qa.qa_heading_mode, "evaluation_protocol": protocol,
+        "reference_course_segments": list(SEGMENTS) if qa.qa_terrain == "competition" else None,
+        "reference_course_dimensions_match": layout_matches if qa.qa_terrain == "competition" else None,
         "motion_trace_schema_version": 1 if qa.qa_trace else None,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "upstream_url": UPSTREAM_URL, "inspected_upstream_commit": UPSTREAM_COMMIT,
