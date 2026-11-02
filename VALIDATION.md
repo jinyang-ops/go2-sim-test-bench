@@ -2,36 +2,34 @@
 
 日期：2026-11-02。
 
-## 已执行
+## CPU 检查
 
-- 本次云端执行环境：Ubuntu 24.04.3、Python 3.12.14、未安装 PyTorch/Isaac Gym，无可用 NVIDIA GPU。这个环境不是用户的 Ubuntu 22.04 电脑。
-- 初始 `python3 -m unittest discover -s tests -v`：14 项通过。覆盖失败优先级、终止后数据冻结、距离/速度误差/力矩统计、时限、不合法数值、场景配置，以及报告协议隔离与空结果拒绝。
-- `python3 -m compileall -q robot_test tests`：通过。
-- 全部 11 个 Python 文件经过 `ast.parse(..., feature_version=(3, 8))` 语法检查：通过。仅证明使用了 Python 3.8 可识别语法，不证明在 Python 3.8 下的所有运行时行为已验证。
-- `python3 -m robot_test.doctor --output /tmp/go2-doctor-smoke.json`：成功生成诊断 JSON；未执行 deep import。
-- 新增训练配置隔离/互斥测试后，本地 18 项 CPU 测试和远程 Python 3.8 CI 已通过，见提交 944f9b6 的 Actions 记录。
-- 已阅读上游 GO2 配置、任务注册、环境、训练/回放入口、CLI 参数和策略加载逻辑；核对了重置前采集位置以及 SDK 自定义 init_height 参数。
+- 初始指标/报告测试 14 项通过；质量随机化配置测试加入后为 18 项；轨迹测试加入后为 22 项。
+- 本地 CPU 检查环境：Ubuntu 24.04.3、Python 3.12.14，无 PyTorch/Isaac Gym。
+- 远程 CI 在 Ubuntu 22.04 / Python 3.8 执行编译与单元测试，状态见仓库 Actions。
+- 代码曾通过 Python 3.8 语法检查；语法检查不替代实际运行时集成。
+- CPU 夹具不作为机器人性能数据；GPU 物理训练不在普通托管 CI 上运行。
 
-## 使用者本机执行并提供的结果
+## GPU 实验记录
 
-- Ubuntu 22.04.5、RTX 4060 Laptop、Python 3.8、PyTorch 2.4.0+cu121。
-- torch CUDA 计算、Isaac Gym 导入和 gymtorch C++ 扩展编译已通过。
-- 原项目 64 环境 / 50 轮启动训练保存了 model_50.pt，play 已加载该模型并打开仿真窗口。
-- 新增训练入口完成 256 环境 / 1000 轮平地训练，日志报告累计 12,288,000 环境步、Total time 493.31s，并保存 model_1000.pt。
-- model_50 的 5s / 1m 单回合评估未达到目标；model_1000 的对应单回合达标。
-- 五场景、3 个评估种子、每批 8 个首回合，共 120 回合平地评估已产生报告：nominal 70.8%、added_mass 16.7%、noisy_observation 83.3%、push 83.3%、robot_friction 91.7%。
-- 仅质量随机化组以相同训练预算完成，日志 Total time 496.01s；另完成五场景 120 回合。两组矩阵累计 240 回合。变体：added_mass 54.2%、nominal 95.8%、noisy_observation 100.0%、push 95.8%、robot_friction 54.2%；低摩擦存在退化。
-- 已从使用者汇总核对原基线：nominal 7 次超时；added_mass 15 次跌落/基座接触判定、5 次超时；实际基座质量差为 2kg。
-- 上述 GPU 数据来自使用者提供的终端和报告，不是助手云端独立执行。已取得汇总，尚未取得完整 CSV/元数据或权重文件用于独立核对。
-- 远程仓库和 CPU CI 已建立；CI 状态以 Actions 页面为准，CPU 测试不替代 GPU 物理测试。
+参考环境：Ubuntu 22.04.5、RTX 4060 Laptop、Python 3.8、PyTorch 2.4.0+cu121。
 
-## 待完成
+- CUDA 张量计算、Isaac Gym 导入、gymtorch 编译通过。
+- 原项目 64 环境 / 50 轮训练保存模型并完成加载回放。
+- 平地基线训练：256 环境 / 1000 轮，12,288,000 环境步，训练日志 Total time 493.31s。
+- 仅质量随机化训练：相同预算，训练日志 Total time 496.01s。
+- model_50 的 5s / 1m 单回合未达标；平地 model_1000 对应单回合达标。
+- 两组五场景矩阵各 120 回合，共 240 回合；负载达标率 16.7% → 54.2%，低摩擦 91.7% → 54.2%。
+- 原基线负载 15 次跌落/基座接触、5 次超时；质量随机化组负载与低摩擦均为 13 次达标、11 次超时，未触发跌落/基座接触。
+- 额外 24 回合低摩擦轨迹诊断观察到明显朝向偏离：超时回合机体 vx 约 1.03–1.06m/s，世界 vx 约 0.024–0.491m/s，横向偏移约 15–18m。
 
-- 核对新模型的负载与低摩擦逐种子失败原因、实际属性和回合状态。
-- 实际终止帧与 CSV 指标的人工抽查，以及完整原始记录/模型 SHA256 的核对。
-- 完成失败归因和必要的额外训练种子验证；当前已观察到负载改善、低摩擦退化，不能泛化为统一改进。
-- 更长比赛路线、ROS 2/Gazebo 接入、真实机器人部署和整机测试。
+以上来自实验端提交的终端输出及汇总文件，不是 CPU 检查环境独立运行的 GPU 数据。完整原始 CSV、metadata.json、权重和完整 SHA256 尚未归档，不能替代独立复核。
 
-结果记录：[240 回合质量随机化回归](docs/results/mass_randomization_comparison.md)、[平地 120 回合基线](docs/results/plane_baseline_matrix.md)、[短程对比](docs/results/short_motion_comparison.md)。
+## 未完成项
 
-tests 中数据是人工构造的单元测试夹具；docs/results 中本机 GPU 汇总记录与其分开。单次或少量种子的结果不证明所有任务已达标。
+- 比赛地图迁移训练与完整赛道通过验证。
+- 原始文件归档、终止帧人工抽查和模型完整哈希核对。
+- 航向模式与世界坐标任务要求的独立协议回归。
+- 多训练种子验证、ROS 2/Gazebo 接入、真实机器人测试。
+
+结果：[平地基线](docs/results/plane_baseline_matrix.md)、[短程对比](docs/results/short_motion_comparison.md)、[质量随机化回归](docs/results/mass_randomization_comparison.md)、[轨迹诊断](docs/experiments/motion_trace.md)。

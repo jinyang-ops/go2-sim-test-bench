@@ -4,7 +4,7 @@
 
 ## 来源与结论范围
 
-本记录整理使用者在其 Ubuntu 22.04 / RTX 4060 Laptop 电脑上运行评估后提供的 summary.json。两个模型各一个回合，均不是助手云端仿真结果。
+本记录整理参考环境运行评估后导出的 summary.json。两个模型各一个回合，均不是 CPU 验证环境仿真结果。
 
 1000 轮平地模型在这个回合达到了 1m 前进目标；50 轮启动模型未达到。这个结论不代表多回合稳定性、复杂地形通过能力或实机能力已经得到验证。
 
@@ -27,7 +27,7 @@
 |平均绝对关节力矩 N·m|3.831489962385905|11.452877597578164|
 |结束原因|time_limit|goal_reached|
 
-1000 轮模型对应的使用者原始汇总：
+1000 轮模型对应的实验端原始汇总：
 
 ```json
 {
@@ -47,7 +47,7 @@
 - 50 轮模型相对上游路径：legged_gym/logs/repro_smoke/Nov02_12-38-16_first/model_50.pt。
 - 1000 轮模型相对上游路径：legged_gym/logs/qa_plane_baseline/Nov02_12-48-21_seed42/model_1000.pt。
 - 平地训练启动参数：num_envs=256、max_iterations=1000、seed=42、qa-terrain=plane。
-- 使用者训练日志报告：末轮 learning iteration 999/1000；累计 12,288,000 个环境步；Total time 493.31s；末轮 Mean reward 14.88。
+- 训练日志报告：末轮 learning iteration 999/1000；累计 12,288,000 个环境步；Total time 493.31s；末轮 Mean reward 14.88。
 - 末轮训练奖励是训练信号，不能替代独立评估。
 - 权重 SHA256、精确上游 commit、逐回合 CSV 与完整元数据尚未随本次终端汇总提供，不推测填写；评估入口会在本机 metadata.json 中记录这些信息。
 
