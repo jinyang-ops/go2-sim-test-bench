@@ -1,0 +1,38 @@
+--- a/legged_gym/legged_gym/envs/go2/go2_robot.py
++++ b/legged_gym/legged_gym/envs/go2/go2_robot.py
+@@ -697,7 +697,10 @@
+             # create env instance
+             env_handle = self.gym.create_env(self.sim, env_lower, env_upper, int(np.sqrt(self.num_envs)))
+             pos = self.env_origins[i].clone()
+-            pos[:2] += torch_rand_float(-1., 1., (2,1), device=self.device).squeeze(1)
++            if self.cfg.terrain.mesh_type == "competition":
++                pos += self.base_init_state[:3]
++            else:
++                pos[:2] += torch_rand_float(-1., 1., (2,1), device=self.device).squeeze(1)
+             start_pose.p = gymapi.Vec3(*pos)
+                 
+             rigid_shape_props = self._process_rigid_shape_props(rigid_shape_props_asset, i)
+@@ -742,8 +745,8 @@
+             self.custom_origins = False
+             self.env_origins = torch.zeros(self.num_envs, 3, device=self.device, requires_grad=False)
+ 
+-            self.env_origins[:,0:1] = torch_rand_float(6, 48, (self.num_envs,1), device=self.device)
+-            self.env_origins[:,1:2] = torch_rand_float(4, 8, (self.num_envs,1), device=self.device)
++            self.env_origins[:, 0] = 2.0  # Flat entry, clear of the map edge.
++            self.env_origins[:, 1] = 0.5 * self.cfg.terrain.terrain_width
+ 
+             indices = torch.where((self.env_origins[:, 0:1] >= 60) & (self.env_origins[:, 0:1] <= 72))[0]
+             self.env_origins[indices, 2:3] = 0.33 * (self.env_origins[indices, 0:1] - 60)+0.3
+--- a/legged_gym/legged_gym/envs/go2/go2_config.py
++++ b/legged_gym/legged_gym/envs/go2/go2_config.py
+@@ -142,6 +142,10 @@
+         base_height_target = 0.25
+         max_contact_force = 100. # forces above this value are penalized
+ 
++    class viewer(LeggedRobotCfg.viewer):
++        pos = [-1.0, 3.0, 2.0]
++        lookat = [2.0, 6.0, 0.42]
++
+ class Go2RoughCfgPPO( LeggedRobotCfgPPO ):
+     class algorithm( LeggedRobotCfgPPO.algorithm ):
+         entropy_coef = 0.01
