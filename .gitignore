@@ -2,15 +2,10 @@ __pycache__/
 *.py[cod]
 .venv/
 .env
-reports/
 logs/
-environment.json
+runs/
+reports/
 *.pt
 *.pth
-*.so
-*.zip
-*.mp4
-# Keep the upstream source/SDK outside this repository.
+*.onnx
 isaacgym/
-legged_robot_competition/
-upstream/
