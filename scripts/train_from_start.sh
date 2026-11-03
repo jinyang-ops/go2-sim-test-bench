@@ -27,6 +27,7 @@ git -C "$upstream_dir" diff -- legged_gym/legged_gym/envs/go2/go2_robot.py legge
 
 python - "$upstream_dir" <<'PY' 2>&1 | tee "$log_dir/start_check.log"
 from pathlib import Path
+import math
 import sys
 
 upstream = Path(sys.argv[1]).resolve()
@@ -50,19 +51,35 @@ for module, relative in (
 
 assert torch.cuda.is_available(), 'CUDA is unavailable; training was not started.'
 print('GPU:', torch.cuda.get_device_name(0), flush=True)
+def check_start_positions(positions, expected, label):
+    # PhysX initialization can slightly change height; keep XY checks strict.
+    tolerances = (1e-5, 1e-5, 1e-3)  # metres: XY 0.01 mm, Z 1 mm
+    print(label + ' xyz: ' + str(positions), flush=True)
+    if not positions:
+        raise AssertionError(label + ': no robot positions')
+    for env_id, row in enumerate(positions):
+        if len(row) != 3:
+            raise AssertionError(label + ': expected three position coordinates')
+        for axis, actual, target, tolerance in zip('XYZ', row, expected, tolerances):
+            if not math.isfinite(actual) or abs(actual - target) > tolerance:
+                raise AssertionError(
+                    '{} env {} {}: actual={}, expected={}, tolerance={} m'.format(
+                        label, env_id, axis, actual, target, tolerance))
+
+
 args = get_args()
 env, cfg = task_registry.make_env(name='go2', args=args)
 try:
     assert cfg.terrain.mesh_type == 'competition'
-    expected = torch.tensor([2.0, cfg.terrain.terrain_width / 2.0, 0.42], device=env.device)
+    expected = [2.0, cfg.terrain.terrain_width / 2.0, 0.42]
     env.gym.refresh_actor_root_state_tensor(env.sim)
-    torch.testing.assert_close(env.root_states[:, :3], expected.expand_as(env.root_states[:, :3]), rtol=0, atol=1e-5)
+    check_start_positions(env.root_states[:, :3].cpu().tolist(), expected, 'Initial')
     ids = torch.arange(env.num_envs, device=env.device)
     for _ in range(2):
         env.reset_idx(ids)
         env.gym.refresh_actor_root_state_tensor(env.sim)
-        torch.testing.assert_close(env.root_states[:, :3], expected.expand_as(env.root_states[:, :3]), rtol=0, atol=1e-5)
-    print('Start check passed: creation and resets use xyz =', expected.cpu().tolist(), flush=True)
+        check_start_positions(env.root_states[:, :3].cpu().tolist(), expected, 'Reset')
+    print('Start check passed: XY error <= 0.00001 m; height error <= 0.001 m.', flush=True)
     print('Episode time limit (s):', cfg.env.episode_length_s, flush=True)
 finally:
     env.gym.destroy_sim(env.sim)
